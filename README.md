@@ -24,6 +24,16 @@ $ yarn add @autots/sticky
 
 ## Example
 
+### layouts
+
+```
+<section id="demo">
+  <div class="child"></div>
+</section>
+```
+
+**Note:** When the host browser doesn't support css `position: sticky`, the lib will fall back to use `scroll` event on window object, and set some css properties to his fisrtElementChild.
+
 ### import as a module
 
 ```
@@ -33,7 +43,7 @@ import Sticky from '@autots/sticky';
 new Sticky('#demo');
 
 // 2. use config
-new Sticky('.classname', {
+new Sticky('#demo', {
   top: 10,
   zIndex: 100
 })

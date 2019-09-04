@@ -11,19 +11,48 @@
       height: 5000px;
     }
 
+    body,ul,li {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    ul {
+      width: 100px;
+      float: left;
+      margin-right: 14px;
+    }
+    
+    li {
+      display: inline-block;
+      position: relative;
+      height: 200px;
+      background: green;
+    }
+
+    .scroll-wrap {
+      float: left;
+      width: 200px;
+      height: 600px;
+      margin-right: 20px;
+      background: pink;
+      overflow-y: auto;
+    }
+
     .wrap {
       position: relative;
-      display: inline-block;
+      float: left;
       background: pink;
-      width: 400px;
+      width: 600px;
       height: 1000px;
     }
 
     .demo {
+      float: left;
       display: inline-block;
       background: blue;
       width: 100px;
-      margin-top: 200px;
+      margin-right: 14px;
       overflow: hidden;
     }
 
@@ -35,16 +64,33 @@
 
     .demo1 {
       width: 100px;
+      margin-top: 200px;
       background: gray;
     }
 
     .demo2 {
+      float: '';
       width: 100px;
+      height: 20px;
+      margin-right: 0;
       background: blue;
+    }
+
+    .demo2 .cont {
+      height: 20px;
     }
 
     .demo3 {
       width: 100px;
+      margin-top: 200px;
+    }
+
+    .demo4 {
+      width: 100px;
+    }
+
+    .demo5 {
+      height: 2000px;
     }
 
     .btn-group {
@@ -58,12 +104,16 @@
     window.onload = function () {
 
       var demo1 = new AutoTs.Sticky('.demo1');
-      var demo2 = new AutoTs.Sticky(document.querySelector('.demo2'));
+      var demo2 = new AutoTs.Sticky(document.querySelectorAll('.demo2'), {
+        scrollContainer: '.scroll-wrap'
+      });
       //var demo3 = new AutoTs.Sticky(document.querySelectorAll('.demo3'));
       window.demo3 = new AutoTs.Sticky(document.getElementsByClassName('demo3'), {
         top: 30,
         zIndex: 300,
       });
+
+      var demo4 = new AutoTs.Sticky('.demo4');
 
       document.getElementById('destroy').addEventListener('click', function () {
         demo1.destory();
@@ -82,14 +132,54 @@
     </div>
   </section>
 
+  <section class="scroll-wrap">
+    <ul>
+      <li>
+        <section class="demo demo2">
+          <div class="cont">
+            demo2 内容
+          </div>
+        </section>
+      </li>
+      <li>
+        <section class="demo demo2">
+          <div class="cont">
+            demo2 内容
+          </div>
+        </section>
+      </li>
+      <li>
+        <section class="demo demo2">
+          <div class="cont">
+            demo2 内容
+          </div>
+        </section>
+      </li>
+      <li>
+        <section class="demo demo2">
+          <div class="cont">
+            demo2 内容
+          </div>
+        </section>
+      </li>
+      <li>
+        <section class="demo demo2">
+          <div class="cont">
+            demo2 内容
+          </div>
+        </section>
+      </li>
+      <li>
+        <section class="demo demo2">
+          <div class="cont">
+            demo2 内容
+          </div>
+        </section>
+      </li>
+    </ul>
+  </section>
+
   <section class="wrap">
-
-    <section class="demo demo2">
-      <div class="cont">
-        demo2 内容
-      </div>
-    </section>
-
     <section class="demo demo3">
       <div class="cont">
         demo3-1内容
@@ -98,6 +188,12 @@
     <section class="demo demo3" id="demo3-2">
       <div class="cont">
         demo3-2内容
+      </div>
+    </section>
+
+    <section class="demo demo4">
+      <div class="cont">
+        demo4 内容
       </div>
     </section>
   </section>
