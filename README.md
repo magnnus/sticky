@@ -24,6 +24,7 @@ $ yarn add @autots/sticky
 
 ## Example
 
+### import as a module
 
 ```
 import Sticky from '@autots/sticky';
@@ -38,6 +39,8 @@ new Sticky('.classname', {
 })
 ```
 
+### import as a lib
+
 ```
 <script src="dist/sticky.min.js"></script>
 
@@ -49,7 +52,7 @@ new Sticky('.classname', {
 ## Config
 
 | Name | Type | Default | Optional | Description |
-|:-------------:|:-------------------:|:-------------:|:-------:|:-----------------------|
+|:-----------:|:----------:|:----------:|:-------:|:-----------------------|
 | top | number \| string | 0 | true | css top property |
 | zIndex | number | 100 | true | css z-index  property |
-| throttle | boolean | false | true | throttle feature |
+| throttle | boolean | false | true | throttle feature when use scroll event |
