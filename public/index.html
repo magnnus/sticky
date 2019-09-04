@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Sticky Demo</title>
+  <style>
+    body {
+      width: 100%;
+      height: 5000px;
+    }
+
+    .wrap {
+      position: relative;
+      display: inline-block;
+      background: pink;
+      width: 400px;
+      height: 1000px;
+    }
+
+    .demo {
+      display: inline-block;
+      background: blue;
+      width: 100px;
+      margin-top: 200px;
+      overflow: hidden;
+    }
+
+    .demo .cont {
+      width: 100px;
+      height: 600px;
+      background: red;
+    }
+
+    .demo1 {
+      width: 100px;
+      background: gray;
+    }
+
+    .demo2 {
+      width: 100px;
+      background: blue;
+    }
+
+    .demo3 {
+      width: 100px;
+    }
+
+    .btn-group {
+      position: fixed;
+      right: 60px;
+      bottom: 60px;
+      zIndex: 100;
+    }
+  </style>
+  <script>
+    window.onload = function () {
+
+      var demo1 = new AutoTs.Sticky('.demo1');
+      var demo2 = new AutoTs.Sticky(document.querySelector('.demo2'));
+      //var demo3 = new AutoTs.Sticky(document.querySelectorAll('.demo3'));
+      window.demo3 = new AutoTs.Sticky(document.getElementsByClassName('demo3'), {
+        top: 30,
+        zIndex: 300,
+      });
+
+      document.getElementById('destroy').addEventListener('click', function () {
+        demo1.destory();
+        demo1 = null;
+      }, false);
+      document.getElementById('unbind').addEventListener('click', function () {
+        demo3.unbind('#demo3-2');
+      }, false);
+    };
+  </script>
+</head>
+<body>
+  <section class="demo demo1">
+    <div class="cont">
+      demo1 内容
+    </div>
+  </section>
+
+  <section class="wrap">
+
+    <section class="demo demo2">
+      <div class="cont">
+        demo2 内容
+      </div>
+    </section>
+
+    <section class="demo demo3">
+      <div class="cont">
+        demo3-1内容
+      </div>
+    </section>
+    <section class="demo demo3" id="demo3-2">
+      <div class="cont">
+        demo3-2内容
+      </div>
+    </section>
+  </section>
+
+  <section class="btn-group">
+    <button type="button" id="destroy"> destory demo1</button>
+    <button type="button" id="unbind"> unbind demo3-2</button>
+  </section>
+</body>
+</html>
