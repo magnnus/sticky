@@ -1,6 +1,6 @@
 /*!
  * @autots/sticky v0.0.1
- * Last Modified @ 2019-9-4 10:53:53 AM
+ * Last Modified @ 2019-9-5 10:01:30 AM
  * Released under the MIT License.
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -139,9 +139,19 @@ var Sticky = /** @class */ (function () {
         this.el = el;
         this.customCfg = customCfg;
         this._scrollListener = function () {
-            _this.targets.forEach(function (el) {
-                _this._setScrollPosition(el);
-            });
+            if (_this.scrollContainer === window) {
+                _this._setScrollPosition(_this.targets);
+            }
+            else {
+                var currentEleOffsetTop = 0;
+                var cur = _this.targets;
+                while (cur !== _this.scrollContainer && cur !== null) {
+                    currentEleOffsetTop += cur.offsetTop;
+                    cur = cur.offsetParent;
+                }
+                _this.currentEleOffsetTop = currentEleOffsetTop;
+                _this._setInnerScrollPosition(_this.targets);
+            }
         };
         this._throttle = function (fn, delay) {
             if (delay === void 0) { delay = 16; }
@@ -185,15 +195,15 @@ var Sticky = /** @class */ (function () {
             return;
         }
         if (typeof el === 'string') {
-            this.targets = Array.prototype.slice.apply(document.querySelectorAll(el));
+            this.targets = document.querySelector(el);
         }
         else if (el instanceof HTMLElement) {
-            this.targets = [el];
+            this.targets = el;
         }
-        else if (el.length) {
-            this.targets = Array.prototype.slice.call(el);
+        else if ((el instanceof HTMLCollection || el instanceof NodeList) && el.length) {
+            this.targets = el[0];
         }
-        if (!this.targets || !this.targets.length) {
+        if (!this.targets) {
             console.error(new Error('Sticky 初始化失败，无法获取到有效的被监听元素'));
             return;
         }
@@ -202,25 +212,48 @@ var Sticky = /** @class */ (function () {
     }
     // decide to use css or scroll event
     Sticky.prototype._init = function () {
+        var _this = this;
+        var config = this.config;
         if (isSupportCssSticky) {
             this._setCssSticky();
             return;
         }
-        if (this.config.throttle) {
+        if (config.throttle) {
             this.listener = this._throttle(this._scrollListener);
         }
         else {
             this.listener = this._scrollListener;
         }
-        window.addEventListener('scroll', this.listener, false);
+        var scrollContainer;
+        if (config.scrollContainer === window || config.scrollContainer === document) {
+            scrollContainer = window;
+        }
+        else if (typeof config.scrollContainer === 'string') {
+            scrollContainer = document.querySelector(config.scrollContainer);
+        }
+        else if (config.scrollContainer instanceof HTMLElement) {
+            scrollContainer = config.scrollContainer;
+        }
+        else if (config.scrollContainer instanceof NodeList || config.scrollContainer instanceof HTMLCollection) {
+            var tmp = Array.prototype.slice.apply(config.scrollContainer);
+            tmp.forEach(function (el) {
+                if (el.contains(_this.targets)) {
+                    scrollContainer = el;
+                }
+            });
+        }
+        if (!scrollContainer) {
+            console.error(new Error('无效的 scrollContainer'));
+        }
+        this.scrollContainer = scrollContainer;
+        scrollContainer.addEventListener('scroll', this.listener, false);
     };
     Sticky.prototype._setCssSticky = function () {
         var config = this.config;
-        this.targets.forEach(function (el) {
-            el.style.position = stickyVendor + "sticky";
-            el.style.top = typeof config.top === 'string' ? config.top : (config.top + 'px');
-            el.style.zIndex = config.zIndex.toString();
-        });
+        var el = this.targets;
+        el.style.position = stickyVendor + "sticky";
+        el.style.top = config.top + 'px';
+        el.style.zIndex = config.zIndex.toString();
     };
     Sticky.prototype._setScrollPosition = function (currentEle) {
         var childEle = currentEle.firstElementChild;
@@ -250,55 +283,64 @@ var Sticky = /** @class */ (function () {
             childEleStyle.position = 'static';
         }
     };
+    Sticky.prototype._setInnerScrollPosition = function (currentEle) {
+        var parentEle = currentEle.offsetParent;
+        var childEle = currentEle.firstElementChild;
+        var scrollEle = this.scrollContainer;
+        var currentEleHeight = currentEle.offsetHeight;
+        // let currentEleOffsetTop = 0;
+        // let cur = currentEle;
+        // while (cur !== scrollEle) {
+        //   currentEleOffsetTop += cur.offsetTop;
+        //   cur = cur.offsetParent as HTMLElement;
+        // }
+        var parentEleHeight = parentEle.offsetHeight;
+        var scrollTop = scrollEle.scrollTop;
+        if (scrollTop <= this.currentEleOffsetTop) {
+            childEle.style.position = '';
+        }
+        else if (scrollTop < parentEleHeight - currentEleHeight + this.currentEleOffsetTop) {
+            childEle.style.position = 'absolute';
+            childEle.style.top = scrollTop - this.currentEleOffsetTop + this.config.top + 'px';
+            childEle.style.bottom = '';
+        }
+        else if (scrollTop < parentEleHeight + this.currentEleOffsetTop) {
+            childEle.style.position = 'absolute';
+            childEle.style.bottom = '0px';
+            childEle.style.top = '';
+        }
+        else {
+            childEle.style.position = '';
+        }
+        childEle.style.zIndex = this.config.zIndex.toString();
+    };
     Sticky.prototype.destory = function () {
         var _this = this;
         if (this.listener) {
             window.removeEventListener('scroll', this.listener, false);
         }
         setTimeout(function () {
-            _this._resetStyle(_this.targets);
+            _this._resetStyle();
         }, 100);
     };
-    Sticky.prototype._resetStyle = function (targets) {
-        targets.forEach(function (el) {
-            if (isSupportCssSticky) {
-                el.style.position = '';
-                el.style.top = '';
-                el.style.zIndex = '';
-            }
-            else {
-                var childEle = el.firstElementChild;
-                el.style.height = '';
-                childEle.style.position = '';
-                childEle.style.top = '';
-                childEle.style.bottom = '';
-                childEle.style.zIndex = '';
-            }
-        });
-    };
-    Sticky.prototype.unbind = function (el) {
-        var _this = this;
-        var unbindTargets;
-        if (typeof el === 'string') {
-            unbindTargets = Array.prototype.slice.apply(document.querySelectorAll(el));
+    Sticky.prototype._resetStyle = function () {
+        var el = this.targets;
+        if (isSupportCssSticky) {
+            el.style.position = '';
+            el.style.top = '';
+            el.style.zIndex = '';
         }
-        else if (el instanceof HTMLElement) {
-            unbindTargets = [el];
+        else {
+            var childEle = el.firstElementChild;
+            el.style.height = '';
+            childEle.style.position = '';
+            childEle.style.top = '';
+            childEle.style.bottom = '';
+            childEle.style.zIndex = '';
         }
-        else if (el.length) {
-            unbindTargets = Array.prototype.slice.call(el);
-        }
-        this.targets = this.targets.filter(function (target) {
-            for (var i = 0; i < unbindTargets.length; i++) {
-                if (unbindTargets[i] === target) {
-                    _this._resetStyle([unbindTargets[i]]);
-                    return false;
-                }
-            }
-            return true;
-        });
     };
     Sticky.defaultConfig = {
+        scrollContainer: window,
         top: 0,
         zIndex: 100,
         throttle: false,

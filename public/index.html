@@ -31,6 +31,7 @@
     }
 
     .scroll-wrap {
+      position: relative;
       float: left;
       width: 200px;
       height: 600px;
@@ -104,9 +105,17 @@
     window.onload = function () {
 
       var demo1 = new AutoTs.Sticky('.demo1');
-      var demo2 = new AutoTs.Sticky(document.querySelectorAll('.demo2'), {
-        scrollContainer: '.scroll-wrap'
+      // var demo2 = new AutoTs.Sticky(document.querySelectorAll('.demo2'), {
+      //   scrollContainer: '.scroll-wrap'
+      // });
+
+      Array.prototype.slice.apply(document.querySelectorAll('.demo2')).forEach(function (el) {
+        new AutoTs.Sticky(el, {
+          top: 0,
+          scrollContainer: '.scroll-wrap'
+        })
       });
+
       //var demo3 = new AutoTs.Sticky(document.querySelectorAll('.demo3'));
       window.demo3 = new AutoTs.Sticky(document.getElementsByClassName('demo3'), {
         top: 30,

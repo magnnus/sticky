@@ -7,6 +7,7 @@ a sticky lib to simulate stickily positioned element.
 + typescript features & vanilla js  
 + use CSS `sticky` firstly  
 + support ie9+
++ only support sticky `top`
 
 ## Installing
 
@@ -62,7 +63,12 @@ new Sticky('#demo', {
 ## Config
 
 | Name | Type | Default | Optional | Description |
-|:-----------:|:----------:|:----------:|:-------:|:-----------------------|
-| top | number \| string | 0 | true | css top property |
+|:-----------:|:---------------:|:----------:|:-------:|:-----------------------|
+| scrollContainer | string \| HTMLElement \| Document \| Window | window | true | scroll container |
+| top | number | 0 | true | css top (`px`) property |
 | zIndex | number | 100 | true | css z-index  property |
-| throttle | boolean | false | true | throttle feature when use scroll event |
+| throttle | boolean | false | true | throttle feature when use scroll event(assigned when encounter special cases) |
+
+## Todo
+
++ support config `direction`  

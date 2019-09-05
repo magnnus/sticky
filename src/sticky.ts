@@ -2,7 +2,7 @@ export interface Iconfig {
   scrollContainer: any;
   throttle: boolean;
   zIndex: number;
-  top: number | string;
+  top: number;
 }
 
 export type TElements = string | HTMLElement | HTMLCollectionOf<HTMLElement> | NodeListOf<HTMLElement>;
@@ -59,6 +59,8 @@ class Sticky {
 
   public scrollContainer: Window | HTMLElement;
 
+  public currentEleOffsetTop: number;
+
   public listener: () => void;
 
   static defaultConfig: Iconfig = {
@@ -108,7 +110,7 @@ class Sticky {
     const config = this.config;
     const el = this.targets;
     el.style.position = `${stickyVendor}sticky`;
-    el.style.top = typeof config.top === 'string' ? config.top : (config.top + 'px');
+    el.style.top = config.top + 'px';
     el.style.zIndex = config.zIndex.toString();
   }
 
@@ -116,6 +118,13 @@ class Sticky {
     if (this.scrollContainer === window) {
       this._setScrollPosition(this.targets);
     } else {
+      let currentEleOffsetTop = 0;
+      let cur = this.targets;
+      while (cur !== this.scrollContainer && cur !== null) {
+        currentEleOffsetTop += cur.offsetTop;
+        cur = cur.offsetParent as HTMLElement;
+      }
+      this.currentEleOffsetTop = currentEleOffsetTop;
       this._setInnerScrollPosition(this.targets);
     }
   }
@@ -157,20 +166,29 @@ class Sticky {
     const scrollEle = this.scrollContainer as HTMLElement;
 
     const currentEleHeight = currentEle.offsetHeight;
+    // let currentEleOffsetTop = 0;
+    // let cur = currentEle;
+    // while (cur !== scrollEle) {
+    //   currentEleOffsetTop += cur.offsetTop;
+    //   cur = cur.offsetParent as HTMLElement;
+    // }
     const parentEleHeight = parentEle.offsetHeight;
     const scrollTop = scrollEle.scrollTop;
 
-    if (scrollTop < parentEleHeight - currentEleHeight) {
-      childEle.style.position = 'absolue';
-      childEle.style.top = scrollTop + 'px';
+    if (scrollTop <= this.currentEleOffsetTop) {
+      childEle.style.position = '';
+    } else if (scrollTop < parentEleHeight - currentEleHeight + this.currentEleOffsetTop) {
+      childEle.style.position = 'absolute';
+      childEle.style.top = scrollTop - this.currentEleOffsetTop + this.config.top + 'px';
       childEle.style.bottom = '';
-    } else if (scrollTop < parentEleHeight) {
+    } else if (scrollTop < parentEleHeight + this.currentEleOffsetTop) {
       childEle.style.position = 'absolute';
       childEle.style.bottom = '0px';
       childEle.style.top = '';
     } else {
       childEle.style.position = '';
     }
+    childEle.style.zIndex = this.config.zIndex.toString();
   }
 
   private _throttle = (fn: (...args: any[]) => void, delay = 16): () => void => {
