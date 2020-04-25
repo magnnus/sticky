@@ -1,47 +1,71 @@
 export interface Iconfig {
-  scrollContainer: any;
+  mode: 'affix' | 'sticky';
+  direction: 'vertical' | 'horizontal' | 'both';
+  scrollRefer: Window | Document | string | Element | NodeListOf<Element> | HTMLCollectionOf<Element>;
   throttle: boolean;
-  zIndex: number;
-  top: number;
+  offsetParent?: string | Element;
+  zIndex?: number;
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+  style?: any;
 }
 
 export type TElements = string | HTMLElement | HTMLCollectionOf<HTMLElement> | NodeListOf<HTMLElement>;
+export type size = 'offsetWidth' | 'offsetHeight';
+export type scrollDist = 'scrollTop' | 'scrollLeft';
+export type offsetDist = 'offsetTop' | 'offsetLeft';
+export type position = 'top' | 'bottom' | 'left' | 'right';
 
-let isSupportCssSticky = false;
+enum pos {
+  TOP = 'top',
+  BOTTOM = 'bottom',
+  LEFT = 'left',
+  RIGHT = 'right',
+}
+
+let supportSticky = false;
 let stickyVendor: string;
 (function (): void {
   const vendorList = ['', '-webkit-', '-ms-', '-moz-', '-o-'];
-  const vendorListLength = vendorList.length;
-  const stickyElement = document.createElement('div');
+  const vendorsLen = vendorList.length;
+  const tmpEl = document.createElement('div');
 
-  for (let i = 0; i < vendorListLength; i++) {
-    stickyElement.style.position = vendorList[i] + 'sticky';
-    if (stickyElement.style.position !== '') {
-      isSupportCssSticky = true;
+  for (let i = 0; i < vendorsLen; i++) {
+    tmpEl.style.position = vendorList[i] + 'sticky';
+    if (tmpEl.style.position !== '') {
+      supportSticky = true;
       stickyVendor = vendorList[i];
       return;
     }
   }
-  isSupportCssSticky = false;
+  supportSticky = false;
 })();
 
+function getClientHeight (): number {
+  return window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+}
+
+function getClientWidth (): number {
+  return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+}
+
 class Sticky {
-  constructor (public el: TElements, public customCfg?: Partial<Iconfig>) {
+  constructor (public el: string | HTMLElement, public customCfg?: Partial<Iconfig>) {
     if (!el) {
-      console.error(new Error('Sticky 初始化错误，缺少必要的选择器参数'));
+      console.error(new Error('Sticky Init Error: missing necessary first param'));
       return;
     }
 
     if (typeof el === 'string') {
-      this.targets = document.querySelector(el);
+      this.target = document.querySelector(el);
     } else if (el instanceof HTMLElement) {
-      this.targets = el;
-    } else if ((el instanceof HTMLCollection || el instanceof NodeList) && el.length) {
-      this.targets = el[0];
+      this.target = el;
     }
 
-    if (!this.targets) {
-      console.error(new Error('Sticky 初始化失败，无法获取到有效的被监听元素'));
+    if (!this.target) {
+      console.error(el, new Error('Sticky Init Error: unable to get a valid listening element'));
       return;
     }
 
@@ -53,80 +77,161 @@ class Sticky {
     this._init();
   }
 
+  static defaultConfig: Iconfig;
+
   public config: Iconfig;
 
-  public targets: HTMLElement;
+  public target: HTMLElement;
 
-  public scrollContainer: Window | HTMLElement;
+  public targetHolder: HTMLElement | null;
 
-  public currentEleOffsetTop: number;
+  public scrollRefer: Window | Element;
+
+  public offsetParent: Element | null;
+
+  public currElOffsetTop: number;
+
+  public targetPosInfo: object;
 
   public listener: () => void;
 
-  static defaultConfig: Iconfig = {
-    scrollContainer: window,
-    top: 0,
-    zIndex: 100,
-    throttle: false,
-  }
-
-  // decide to use css or scroll event
   private _init (): void {
-    const config = this.config;
+    const cfg = this.config;
 
-    if (isSupportCssSticky) {
+    // check `mode` firstly
+    if (cfg.mode === 'affix') {
+      if (cfg.direction === 'vertical') {
+        this._setVerticalAffix(typeof cfg.top === 'number' ? 'top' : 'bottom');
+      } else {
+        this._setVerticalAffix(typeof cfg.left === 'number' ? 'left' : 'right');
+      }
+      return;
+    }
+
+    if (supportSticky) {
       this._setCssSticky();
       return;
     }
-    if (config.throttle) {
+
+    if (cfg.throttle) {
       this.listener = this._throttle(this._scrollListener);
     } else {
       this.listener = this._scrollListener;
     }
 
-    let scrollContainer: any;
-    if (config.scrollContainer === window || config.scrollContainer === document) {
-      scrollContainer = window;
-    } else if (typeof config.scrollContainer === 'string') {
-      scrollContainer = document.querySelector(config.scrollContainer);
-    } else if (config.scrollContainer instanceof HTMLElement) {
-      scrollContainer = config.scrollContainer;
-    } else if (config.scrollContainer instanceof NodeList || config.scrollContainer instanceof HTMLCollection) {
-      const tmp = Array.prototype.slice.apply(config.scrollContainer);
-      tmp.forEach(el => {
-        if (el.contains(this.targets)) {
-          scrollContainer = el;
+    let tmpRefer: Window | Element;
+    const { scrollRefer, offsetParent } = cfg;
+    const globalArr: any[] = [window, document, document.body];
+    console.log(scrollRefer, globalArr.indexOf(scrollRefer));
+    if (globalArr.indexOf(scrollRefer) !== -1) {
+      tmpRefer = window;
+    } else if (typeof scrollRefer === 'string') {
+      tmpRefer = document.querySelector(scrollRefer);
+    } else if (scrollRefer instanceof Element) {
+      tmpRefer = scrollRefer;
+    } else if (scrollRefer instanceof NodeList || scrollRefer instanceof HTMLCollection) {
+      const tmp: Element[] = Array.prototype.slice.apply(scrollRefer);
+      for (const el of tmp) {
+        if (el.contains(this.target)) {
+          tmpRefer = el;
+          break;
         }
-      });
+      }
     }
-    if (!scrollContainer) {
-      console.error(new Error('无效的 scrollContainer'));
+    if (!tmpRefer) {
+      console.error(new Error('Add Sticky Scroll Listener Error: invalid scrollRefer param'), cfg);
+      return;
     }
-    this.scrollContainer = scrollContainer;
-    scrollContainer.addEventListener('scroll', this.listener, false);
+    this.scrollRefer = tmpRefer;
+
+    let tmpParent = null;
+    if (offsetParent) {
+      if (typeof offsetParent === 'string') {
+        tmpParent = (this.scrollRefer === window ? document : this.scrollRefer as Element).querySelector(offsetParent);
+      } else if (offsetParent instanceof Element) {
+        tmpParent = offsetParent;
+      }
+    } else {
+      tmpParent = this.target.offsetParent;
+    }
+    this.offsetParent = tmpParent;
+
+    tmpRefer.addEventListener('scroll', this.listener, false);
+  }
+
+  private scrollListenerPool: Array<() => void> = [];
+
+  private _affixListener (tag: position = 'top'): void {
+    const { target, targetHolder, config } = this;
+
+    const targetRect = (targetHolder || target).getBoundingClientRect();
+    const style = target.style;
+    let clientRect = 0;
+    if (tag === 'bottom') {
+      clientRect = getClientHeight();
+    } else if (tag === 'right') {
+      clientRect = getClientWidth();
+    }
+
+    if (targetRect[tag] < Math.abs(clientRect - config[tag])) {
+      if (!targetHolder) {
+        const holder = document.createElement('div');
+        holder.style.cssText = `width: ${target.offsetWidth}px; height: ${target.offsetHeight}px`;
+        target.insertAdjacentElement('beforebegin', holder);
+        this.targetHolder = holder;
+      }
+      this._setStyleCssText();
+      style.position = 'fixed';
+      style[tag] = config[tag] + 'px';
+    } else {
+      if (targetHolder) {
+        targetHolder.parentNode.removeChild(targetHolder);
+        this.targetHolder = null;
+      }
+      // style.removeProperty('position');
+      // style.removeProperty(tag);
+      target.removeAttribute('style');
+    }
+  }
+
+  private _setVerticalAffix (tag: position = 'top'): void {
+    this.listener = this._affixListener.bind(this, tag);
+    window.addEventListener('scroll', this.listener, false);
   }
 
   private _setCssSticky (): void {
-    const config = this.config;
-    const el = this.targets;
-    el.style.position = `${stickyVendor}sticky`;
-    el.style.top = config.top + 'px';
-    el.style.zIndex = config.zIndex.toString();
+    const { config, target } = this;
+    const { style } = config;
+
+    for (const attr of Object.keys(style)) {
+      target.style[attr as any] = style[attr as any];
+    }
+    target.style.position = `${stickyVendor}sticky`;
+    target.style.top = config.top + 'px';
+    target.style.zIndex = config.zIndex.toString();
+  }
+
+  private _setStyleCssText (): void {
+    const { config, target } = this;
+    const { style } = config;
+    for (const attr of Object.keys(style)) {
+      target.style[attr as any] = style[attr];
+    }
   }
 
   private _scrollListener = (): void => {
-    if (this.scrollContainer === window) {
-      this._setScrollPosition(this.targets);
-    } else {
-      let currentEleOffsetTop = 0;
-      let cur = this.targets;
-      while (cur !== this.scrollContainer && cur !== null) {
-        currentEleOffsetTop += cur.offsetTop;
-        cur = cur.offsetParent as HTMLElement;
-      }
-      this.currentEleOffsetTop = currentEleOffsetTop;
-      this._setInnerScrollPosition(this.targets);
+    if (this.scrollRefer === window) {
+      this._setScrollPosition(this.target);
+      return;
     }
+    let currElOffsetTop = 0;
+    let cur = this.target;
+    while (cur !== this.scrollRefer && cur !== null) {
+      currElOffsetTop += cur.offsetTop;
+      cur = cur.offsetParent as HTMLElement;
+    }
+    this.currElOffsetTop = currElOffsetTop;
+    this._setVerticalPos('top');
   }
 
   private _setScrollPosition (currentEle: HTMLElement): void {
@@ -160,31 +265,38 @@ class Sticky {
     }
   }
 
-  private _setInnerScrollPosition (currentEle: HTMLElement): void {
-    const parentEle = currentEle.offsetParent as HTMLElement;
-    const childEle = currentEle.firstElementChild as HTMLElement;
-    const scrollEle = this.scrollContainer as HTMLElement;
+  private _setVerticalPos (offsetTag: 'top' | 'bottom' = 'top'): void {
+    const { direction, top, bottom } = this.config;
+    const reverseTag = offsetTag === 'top' ? 'bottom' : 'top';
+    let size: size = 'offsetHeight';
+    let dist: scrollDist = 'scrollTop';
+    if (direction === 'vertical') {
 
-    const currentEleHeight = currentEle.offsetHeight;
-    // let currentEleOffsetTop = 0;
-    // let cur = currentEle;
-    // while (cur !== scrollEle) {
-    //   currentEleOffsetTop += cur.offsetTop;
-    //   cur = cur.offsetParent as HTMLElement;
-    // }
-    const parentEleHeight = parentEle.offsetHeight;
-    const scrollTop = scrollEle.scrollTop;
+    } else if (direction === 'horizontal') {
+      size = 'offsetWidth';
+      dist = 'scrollLeft';
+    } else {
 
-    if (scrollTop <= this.currentEleOffsetTop) {
+    }
+    const parentEle = this.offsetParent as HTMLElement;
+    const childEle = this.target.firstElementChild as HTMLElement;
+    const scrollEle = this.scrollRefer as HTMLElement;
+
+    const currElSize = this.target[size];
+    const parentElSize = parentEle[size];
+    const scrollDist = scrollEle[dist];
+    const offsetDist = this.currElOffsetTop;
+
+    if (scrollDist <= offsetDist - this.config[offsetTag]) {
       childEle.style.position = '';
-    } else if (scrollTop < parentEleHeight - currentEleHeight + this.currentEleOffsetTop) {
+    } else if (scrollDist < parentElSize - currElSize + offsetDist) {
       childEle.style.position = 'absolute';
-      childEle.style.top = scrollTop - this.currentEleOffsetTop + this.config.top + 'px';
-      childEle.style.bottom = '';
-    } else if (scrollTop < parentEleHeight + this.currentEleOffsetTop) {
+      childEle.style[offsetTag] = scrollDist - offsetDist + this.config[offsetTag] + 'px';
+      childEle.style[reverseTag] = '';
+    } else if (scrollDist < parentElSize + offsetDist) {
       childEle.style.position = 'absolute';
-      childEle.style.bottom = '0px';
-      childEle.style.top = '';
+      childEle.style[reverseTag] = '0px';
+      childEle.style[offsetTag] = '';
     } else {
       childEle.style.position = '';
     }
@@ -238,8 +350,8 @@ class Sticky {
   }
 
   private _resetStyle (): void {
-    const el = this.targets;
-    if (isSupportCssSticky) {
+    const el = this.target;
+    if (supportSticky) {
       el.style.position = '';
       el.style.top = '';
       el.style.zIndex = '';
@@ -253,5 +365,17 @@ class Sticky {
     }
   }
 }
+
+Sticky.defaultConfig = {
+  mode: 'sticky',
+  direction: 'vertical',
+  scrollRefer: window,
+  offsetParent: null,
+  style: {
+    zIndex: '100',
+  },
+  zIndex: 100,
+  throttle: false,
+};
 
 export default Sticky;

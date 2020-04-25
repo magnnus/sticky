@@ -5,183 +5,64 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Sticky Demo</title>
-  <style>
-    body {
-      width: 100%;
-      height: 5000px;
-    }
-
-    body,ul,li {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    ul {
-      width: 100px;
-      float: left;
-      margin-right: 14px;
-    }
-    
-    li {
-      display: inline-block;
-      position: relative;
-      height: 200px;
-      background: green;
-    }
-
-    .scroll-wrap {
-      position: relative;
-      float: left;
-      width: 200px;
-      height: 600px;
-      margin-right: 20px;
-      background: pink;
-      overflow-y: auto;
-    }
-
-    .wrap {
-      position: relative;
-      float: left;
-      background: pink;
-      width: 600px;
-      height: 1000px;
-    }
-
-    .demo {
-      float: left;
-      display: inline-block;
-      background: blue;
-      width: 100px;
-      margin-right: 14px;
-      overflow: hidden;
-    }
-
-    .demo .cont {
-      width: 100px;
-      height: 600px;
-      background: red;
-    }
-
-    .demo1 {
-      width: 100px;
-      margin-top: 200px;
-      background: gray;
-    }
-
-    .demo2 {
-      float: '';
-      width: 100px;
-      height: 20px;
-      margin-right: 0;
-      background: blue;
-    }
-
-    .demo2 .cont {
-      height: 20px;
-    }
-
-    .demo3 {
-      width: 100px;
-      margin-top: 200px;
-    }
-
-    .demo4 {
-      width: 100px;
-    }
-
-    .demo5 {
-      height: 2000px;
-    }
-
-    .btn-group {
-      position: fixed;
-      right: 60px;
-      bottom: 60px;
-      zIndex: 100;
-    }
-  </style>
-  <script>
-    window.onload = function () {
-
-      var demo1 = new AutoTs.Sticky('.demo1');
-      // var demo2 = new AutoTs.Sticky(document.querySelectorAll('.demo2'), {
-      //   scrollContainer: '.scroll-wrap'
-      // });
-
-      Array.prototype.slice.apply(document.querySelectorAll('.demo2')).forEach(function (el) {
-        new AutoTs.Sticky(el, {
-          top: 0,
-          scrollContainer: '.scroll-wrap'
-        })
-      });
-
-      //var demo3 = new AutoTs.Sticky(document.querySelectorAll('.demo3'));
-      window.demo3 = new AutoTs.Sticky(document.getElementsByClassName('demo3'), {
-        top: 30,
-        zIndex: 300,
-      });
-
-      var demo4 = new AutoTs.Sticky('.demo4');
-
-      document.getElementById('destroy').addEventListener('click', function () {
-        demo1.destory();
-        demo1 = null;
-      }, false);
-      document.getElementById('unbind').addEventListener('click', function () {
-        demo3.unbind('#demo3-2');
-      }, false);
-    };
-  </script>
+  <link rel="stylesheet" href="main.css">
 </head>
 <body>
   <section class="demo demo1">
-    <div class="cont">
-      demo1 内容
-    </div>
+    demo1 内容
   </section>
 
-  <section class="scroll-wrap">
+  <section class="demo" style="padding-top:1000px;">
+    <div class="affix affix-bottom">bottom 40</div>
+  </section>
+
+  <section class="affix-horizontal"style="width: 2000px;">
+    <div class="affix affix-left">left affix</div>
+    <div style="width: 1300px; backgroud: yellow"></div>
+    <div class="affix affix-right">right affix</div>
+  </section>
+
+  <!-- <section class="scroll-wrap">
     <ul>
       <li>
         <section class="demo demo2">
           <div class="cont">
-            demo2 内容
+            demo2 - 1 内容
           </div>
         </section>
       </li>
       <li>
         <section class="demo demo2">
           <div class="cont">
-            demo2 内容
+            demo2 - 2 内容
           </div>
         </section>
       </li>
       <li>
         <section class="demo demo2">
           <div class="cont">
-            demo2 内容
+            demo2 - 3 内容
           </div>
         </section>
       </li>
       <li>
         <section class="demo demo2">
           <div class="cont">
-            demo2 内容
+            demo2 - 4 内容
           </div>
         </section>
       </li>
       <li>
         <section class="demo demo2">
           <div class="cont">
-            demo2 内容
+            demo2 - 5 内容
           </div>
         </section>
       </li>
       <li>
         <section class="demo demo2">
           <div class="cont">
-            demo2 内容
+            demo2 - 6 内容
           </div>
         </section>
       </li>
@@ -205,11 +86,13 @@
         demo4 内容
       </div>
     </section>
-  </section>
+  </section> -->
 
   <section class="btn-group">
     <button type="button" id="destroy"> destory demo1</button>
     <button type="button" id="unbind"> unbind demo3-2</button>
   </section>
+
 </body>
+<script src="demo.js"></script>
 </html>
