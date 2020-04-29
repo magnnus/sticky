@@ -1,12 +1,16 @@
-body {
-  width: 100%;
-  height: 5000px;
-}
-
 body,ul,li {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+body {
+  padding: 50px;
+  min-height: 5000px;
+}
+
+section {
+  margin-top: 20px;
 }
 
 ul {
@@ -24,7 +28,6 @@ li {
 
 .scroll-wrap {
   position: relative;
-  float: left;
   width: 200px;
   height: 600px;
   margin-right: 20px;
@@ -32,19 +35,21 @@ li {
   overflow-y: auto;
 }
 
-.wrap {
+.inner-wrap {
   position: relative;
-  float: left;
   background: pink;
-  width: 600px;
+  width: 800px;
   height: 1000px;
+  border: 50px dashed #f60;
+}
+
+.inner-wrap div {
+  display: inline-block;
 }
 
 .demo {
-  display: block;
   background: gray;
   width: 100px;
-  margin-right: 14px;
   overflow: hidden;
   border: 2px solid #f60;
 }
@@ -57,9 +62,13 @@ li {
   background: blue;
 }
 
+.affix-bottom {
+  width: 100px;
+}
+
 .demo .cont {
   width: 100px;
-  height: 600px;
+  height: 500px;
   background: red;
 }
 
@@ -82,7 +91,6 @@ li {
 
 .demo3 {
   width: 100px;
-  margin-top: 200px;
 }
 
 .demo4 {

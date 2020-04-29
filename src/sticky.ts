@@ -1,15 +1,16 @@
 export interface Iconfig {
   mode: 'affix' | 'sticky';
-  direction: 'vertical' | 'horizontal' | 'both';
-  scrollRefer: Window | Document | string | Element | NodeListOf<Element> | HTMLCollectionOf<Element>;
-  throttle: boolean;
+  direction: 'vertical' | 'horizontal';
+  scrollRefer: Window | Document | string | Element;
   offsetParent?: string | Element;
+  throttle: boolean;
   zIndex?: number;
   top?: number;
   bottom?: number;
   left?: number;
   right?: number;
   style?: any;
+  holderStyle?: any;
 }
 
 export type TElements = string | HTMLElement | HTMLCollectionOf<HTMLElement> | NodeListOf<HTMLElement>;
@@ -89,10 +90,6 @@ class Sticky {
 
   public offsetParent: Element | null;
 
-  public currElOffsetTop: number;
-
-  public targetPosInfo: object;
-
   public listener: () => void;
 
   private _init (): void {
@@ -100,46 +97,108 @@ class Sticky {
 
     // check `mode` firstly
     if (cfg.mode === 'affix') {
-      if (cfg.direction === 'vertical') {
-        this._setVerticalAffix(typeof cfg.top === 'number' ? 'top' : 'bottom');
-      } else {
-        this._setVerticalAffix(typeof cfg.left === 'number' ? 'left' : 'right');
+      if (supportSticky && this.target.parentElement === document.body) {
+        this._initNativeStickyMode();
+        return;
       }
+      this._initAffixMode();
       return;
     }
 
+    // then apply `native sticky` func
     if (supportSticky) {
-      this._setCssSticky();
+      this._initNativeStickyMode();
       return;
     }
 
-    if (cfg.throttle) {
-      this.listener = this._throttle(this._scrollListener);
-    } else {
-      this.listener = this._scrollListener;
-    }
+    this._initFallbackStickyMode();
+  }
 
+  private _createTargetHolder (): void {
+    const { target, targetHolder } = this;
+    if (targetHolder) {
+      return;
+    }
+    const holder = document.createElement('div');
+    holder.style.cssText = `width: ${target.offsetWidth}px; height: ${target.offsetHeight}px`;
+    target.insertAdjacentElement('beforebegin', holder);
+    this.targetHolder = holder;
+    this.setStyleForHolder();
+  }
+
+  private _removeTagetHolder (): void {
+    const { targetHolder } = this;
+
+    if (targetHolder) {
+      targetHolder.parentNode.removeChild(targetHolder);
+      this.targetHolder = null;
+    }
+  }
+
+  private _initAffixMode (): void {
+    const { config } = this;
+    if (config.throttle) {
+      this.listener = this._throttle(this._affixListener);
+    } else {
+      this.listener = this._affixListener;
+    }
+    this._initTargetInfo();
+    window.addEventListener('scroll', this.listener, false);
+  }
+
+  private _affixListener = (): void => {
+    const { target, targetHolder, config } = this;
+    const tag: position = isNaN(config.top) && !isNaN(config.bottom) ? 'bottom' : 'top';
+
+    const targetRect = (targetHolder || target).getBoundingClientRect();
+    const style = target.style;
+    let clientRect = 0;
+    if (tag === 'bottom') {
+      clientRect = getClientHeight();
+    }
+    // else if (tag === 'right') {
+    //   // ! Not Used!!!
+    //   clientRect = getClientWidth();
+    // }
+
+    if (targetRect[tag] < Math.abs(clientRect - config[tag])) {
+      this._createTargetHolder();
+      this.setStyleForTarget();
+      style.position = 'fixed';
+      style[tag] = config[tag] + 'px';
+    } else {
+      this._removeTagetHolder();
+      target.removeAttribute('style');
+    }
+  }
+
+  private _initNativeStickyMode (): void {
+    const { config: { top, bottom }, target } = this;
+
+    this.setStyleForTarget();
+    target.style.position = `${stickyVendor}sticky`;
+    if (!isNaN(top)) {
+      target.style.top = top + 'px';
+    } else if (!isNaN(bottom)) {
+      target.style.bottom = bottom + 'px';
+    }
+  }
+
+  private _initFallbackStickyMode (): void {
+    const { config } = this;
     let tmpRefer: Window | Element;
-    const { scrollRefer, offsetParent } = cfg;
+    const { scrollRefer, offsetParent } = config;
     const globalArr: any[] = [window, document, document.body];
-    console.log(scrollRefer, globalArr.indexOf(scrollRefer));
+
     if (globalArr.indexOf(scrollRefer) !== -1) {
       tmpRefer = window;
     } else if (typeof scrollRefer === 'string') {
       tmpRefer = document.querySelector(scrollRefer);
     } else if (scrollRefer instanceof Element) {
       tmpRefer = scrollRefer;
-    } else if (scrollRefer instanceof NodeList || scrollRefer instanceof HTMLCollection) {
-      const tmp: Element[] = Array.prototype.slice.apply(scrollRefer);
-      for (const el of tmp) {
-        if (el.contains(this.target)) {
-          tmpRefer = el;
-          break;
-        }
-      }
     }
     if (!tmpRefer) {
-      console.error(new Error('Add Sticky Scroll Listener Error: invalid scrollRefer param'), cfg);
+      console.error(new Error('Add Sticky Scroll Listener Error: invalid scrollRefer param'), config);
       return;
     }
     this.scrollRefer = tmpRefer;
@@ -156,62 +215,17 @@ class Sticky {
     }
     this.offsetParent = tmpParent;
 
-    tmpRefer.addEventListener('scroll', this.listener, false);
-  }
-
-  private scrollListenerPool: Array<() => void> = [];
-
-  private _affixListener (tag: position = 'top'): void {
-    const { target, targetHolder, config } = this;
-
-    const targetRect = (targetHolder || target).getBoundingClientRect();
-    const style = target.style;
-    let clientRect = 0;
-    if (tag === 'bottom') {
-      clientRect = getClientHeight();
-    } else if (tag === 'right') {
-      clientRect = getClientWidth();
-    }
-
-    if (targetRect[tag] < Math.abs(clientRect - config[tag])) {
-      if (!targetHolder) {
-        const holder = document.createElement('div');
-        holder.style.cssText = `width: ${target.offsetWidth}px; height: ${target.offsetHeight}px`;
-        target.insertAdjacentElement('beforebegin', holder);
-        this.targetHolder = holder;
-      }
-      this._setStyleCssText();
-      style.position = 'fixed';
-      style[tag] = config[tag] + 'px';
+    if (config.throttle) {
+      this.listener = this._throttle(this._fallbackStickyListener);
     } else {
-      if (targetHolder) {
-        targetHolder.parentNode.removeChild(targetHolder);
-        this.targetHolder = null;
-      }
-      // style.removeProperty('position');
-      // style.removeProperty(tag);
-      target.removeAttribute('style');
+      this.listener = this._fallbackStickyListener;
     }
+
+    this._initTargetInfo();
+    this.scrollRefer.addEventListener('scroll', this.listener, false);
   }
 
-  private _setVerticalAffix (tag: position = 'top'): void {
-    this.listener = this._affixListener.bind(this, tag);
-    window.addEventListener('scroll', this.listener, false);
-  }
-
-  private _setCssSticky (): void {
-    const { config, target } = this;
-    const { style } = config;
-
-    for (const attr of Object.keys(style)) {
-      target.style[attr as any] = style[attr as any];
-    }
-    target.style.position = `${stickyVendor}sticky`;
-    target.style.top = config.top + 'px';
-    target.style.zIndex = config.zIndex.toString();
-  }
-
-  private _setStyleCssText (): void {
+  public setStyleForTarget (): void {
     const { config, target } = this;
     const { style } = config;
     for (const attr of Object.keys(style)) {
@@ -219,88 +233,133 @@ class Sticky {
     }
   }
 
-  private _scrollListener = (): void => {
+  public setStyleForHolder (): void {
+    const { config, targetHolder } = this;
+    const { holderStyle } = config;
+    for (const attr of Object.keys(holderStyle)) {
+      targetHolder.style[attr as any] = holderStyle[attr];
+    }
+  }
+
+  private _fallbackStickyListener = (): void => {
     if (this.scrollRefer === window) {
-      this._setScrollPosition(this.target);
+      this._setPosOnWindowSticky();
       return;
     }
-    let currElOffsetTop = 0;
+    this._setPosOnInnerSticky();
+  }
+
+  public targetInfo: any;
+
+  private _getTopDist (refer: Window |Element): number {
+    let top = 0;
     let cur = this.target;
-    while (cur !== this.scrollRefer && cur !== null) {
-      currElOffsetTop += cur.offsetTop;
+    while (cur !== refer && cur !== null) {
+      top += cur.offsetTop;
+      if (cur !== this.target) {
+        top += parseInt(getComputedStyle(cur).borderTopWidth, 10);
+      }
       cur = cur.offsetParent as HTMLElement;
     }
-    this.currElOffsetTop = currElOffsetTop;
-    this._setVerticalPos('top');
+    return top;
   }
 
-  private _setScrollPosition (currentEle: HTMLElement): void {
-    const childEle = currentEle.firstElementChild as HTMLElement;
-    const config = this.config;
-
-    const currentEleOffsetTop = currentEle.offsetTop;
-    const currentEleBoundingTop = currentEle.getBoundingClientRect().top;
-
-    const parentEleHeight = (currentEle.offsetParent as HTMLElement).offsetHeight;
-    const childEleStyle = childEle.style;
-
-    if (currentEleBoundingTop <= config.top) {
-      const tmpHeight = parseInt(currentEle.style.height);
-      if (!tmpHeight || tmpHeight !== childEle.offsetHeight) {
-        currentEle.style.height = `${childEle.offsetHeight}px`;
+  private _getLeftDist (refer: Window |Element): number {
+    let left = 0;
+    let cur = this.target;
+    while (cur !== refer && cur !== null) {
+      left += cur.offsetLeft;
+      if (cur !== this.target) {
+        left += parseInt(getComputedStyle(cur).borderLeftWidth, 10);
       }
-      if (parentEleHeight - currentEleOffsetTop - currentEle.offsetHeight - Math.abs(currentEleBoundingTop) < 0) {
-        childEleStyle.position = 'absolute';
-        childEleStyle.bottom = '0px';
-        childEleStyle.top = '';
+      cur = cur.offsetParent as HTMLElement;
+    }
+    return left;
+  }
+
+  private _initTargetInfo (): void {
+    const { target, scrollRefer, offsetParent } = this;
+    const rect = target.getBoundingClientRect();
+    this.targetInfo = {
+      topToRefer: this._getTopDist(scrollRefer),
+      topToParent: this._getTopDist(offsetParent),
+      leftToRefer: this._getLeftDist(scrollRefer),
+      leftToParent: this._getLeftDist(offsetParent),
+      height: target.offsetHeight,
+      width: target.offsetWidth,
+      leftToClient: rect.left,
+    };
+  }
+
+  private _setPosOnWindowSticky (): void {
+    const { target, targetHolder, config, targetInfo } = this;
+    const targetBoundingTop = (targetHolder || target).getBoundingClientRect().top;
+
+    const parentEleHeight = (this.offsetParent as HTMLElement).offsetHeight;
+    const targetStyle = target.style;
+
+    if (targetBoundingTop <= config.top) {
+      this._createTargetHolder();
+      this.setStyleForTarget();
+
+      if (parentEleHeight - targetInfo.topToParent - targetInfo.height - config.top < Math.abs(targetBoundingTop)) {
+        targetStyle.position = 'absolute';
+        targetStyle.bottom = '0px';
+        targetStyle.left = targetInfo.leftToParent + 'px';
+        targetStyle.removeProperty('top');
       } else {
-        childEleStyle.position = 'fixed';
-        childEleStyle.bottom = '';
-        childEleStyle.top = `${config.top}px`;
+        targetStyle.position = 'fixed';
+        targetStyle.top = `${config.top}px`;
+        targetStyle.left = targetInfo.leftToClient + 'px';
+        targetStyle.removeProperty('bottom');
       }
-
-      childEleStyle.zIndex = config.zIndex.toString();
     } else {
-      childEleStyle.position = 'static';
+      target.removeAttribute('style');
+      this._removeTagetHolder();
     }
   }
 
-  private _setVerticalPos (offsetTag: 'top' | 'bottom' = 'top'): void {
-    const { direction, top, bottom } = this.config;
-    const reverseTag = offsetTag === 'top' ? 'bottom' : 'top';
-    let size: size = 'offsetHeight';
-    let dist: scrollDist = 'scrollTop';
-    if (direction === 'vertical') {
-
-    } else if (direction === 'horizontal') {
-      size = 'offsetWidth';
-      dist = 'scrollLeft';
-    } else {
-
+  private _setPosOnInnerSticky (): void {
+    const { target, scrollRefer, offsetParent, config } = this;
+    let offsetTag: 'top' | 'bottom' = 'top';
+    let reverseTag: 'top' | 'bottom' = 'bottom';
+    if (isNaN(config.top) && !isNaN(config.bottom)) {
+      offsetTag = 'bottom';
+      reverseTag = 'top';
     }
-    const parentEle = this.offsetParent as HTMLElement;
-    const childEle = this.target.firstElementChild as HTMLElement;
-    const scrollEle = this.scrollRefer as HTMLElement;
+    const size: size = 'offsetHeight';
+    const dist: scrollDist = 'scrollTop';
+    // if (direction === 'horizontal') {
+    //   size = 'offsetWidth';
+    //   dist = 'scrollLeft';
+    // }
 
-    const currElSize = this.target[size];
-    const parentElSize = parentEle[size];
-    const scrollDist = scrollEle[dist];
-    const offsetDist = this.currElOffsetTop;
+    const targetSize = target[size];
+    const parentElSize = (offsetParent as HTMLElement)[size];
+    const scrollDist = (scrollRefer === window ? document.documentElement || document.body : scrollRefer as Element)[dist];
+    const targetDist = this.targetInfo.topToRefer;
 
-    if (scrollDist <= offsetDist - this.config[offsetTag]) {
-      childEle.style.position = '';
-    } else if (scrollDist < parentElSize - currElSize + offsetDist) {
-      childEle.style.position = 'absolute';
-      childEle.style[offsetTag] = scrollDist - offsetDist + this.config[offsetTag] + 'px';
-      childEle.style[reverseTag] = '';
-    } else if (scrollDist < parentElSize + offsetDist) {
-      childEle.style.position = 'absolute';
-      childEle.style[reverseTag] = '0px';
-      childEle.style[offsetTag] = '';
+    const targetStyle = target.style;
+
+    if (scrollDist <= targetDist - config[offsetTag]) {
+      target.removeAttribute('style');
+      this._removeTagetHolder();
+    } else if (scrollDist < targetDist + parentElSize - targetSize) {
+      this._createTargetHolder();
+      this.setStyleForTarget();
+      targetStyle.position = 'absolute';
+      targetStyle[offsetTag] = scrollDist - targetDist + config[offsetTag] + 'px';
+      targetStyle[reverseTag] = '';
+    } else if (scrollDist < parentElSize + targetDist) {
+      this._createTargetHolder();
+      this.setStyleForTarget();
+      targetStyle.position = 'absolute';
+      targetStyle[reverseTag] = '0px';
+      targetStyle[offsetTag] = '';
     } else {
-      childEle.style.position = '';
+      target.removeAttribute('style');
+      this._removeTagetHolder();
     }
-    childEle.style.zIndex = this.config.zIndex.toString();
   }
 
   private _throttle = (fn: (...args: any[]) => void, delay = 16): () => void => {
@@ -351,17 +410,13 @@ class Sticky {
 
   private _resetStyle (): void {
     const el = this.target;
+    el.removeAttribute('style');
     if (supportSticky) {
-      el.style.position = '';
-      el.style.top = '';
-      el.style.zIndex = '';
+      el.removeAttribute('style');
     } else {
       const childEle = el.firstElementChild as HTMLElement;
       el.style.height = '';
-      childEle.style.position = '';
-      childEle.style.top = '';
-      childEle.style.bottom = '';
-      childEle.style.zIndex = '';
+      childEle.removeAttribute('style');
     }
   }
 }
@@ -373,6 +428,8 @@ Sticky.defaultConfig = {
   offsetParent: null,
   style: {
     zIndex: '100',
+  },
+  holderStyle: {
   },
   zIndex: 100,
   throttle: false,
