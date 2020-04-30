@@ -3,6 +3,9 @@
 var demo1 = new AutoTs.Sticky('.demo1', {
   mode: 'affix',
   top: 0,
+  style: {
+    margin: 0,
+  }
 });
 var affixBottom = new AutoTs.Sticky('.affix-bottom', {
   mode: 'affix',
@@ -35,7 +38,7 @@ Array.prototype.slice.apply(document.querySelectorAll('.demo2')).forEach(functio
     style: {
       top: 0,
     },
-    top: 0,
+    top: 10,
     scrollRefer: '.scroll-wrap'
   })
 });

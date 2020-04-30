@@ -91,6 +91,7 @@ li {
 
 .demo3 {
   width: 100px;
+  transition: top 2s;
 }
 
 .demo4 {

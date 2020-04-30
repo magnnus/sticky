@@ -64,13 +64,15 @@ new Sticky('#demo', {
 
 | Name | Type | Default | Optional | Description |
 |:-----------:|:---------------:|:----------:|:-------:|:-----------------------|
+| mode | 'sticky' or 'affix' | 'sticky' | true | normal `affix`（fixed） mode or  new `sticky` feature ｜
 | scrollRefer | string \| HTMLElement \| Document \| Window | window | true | scroll container |
 | offsetParent | string | null | true | offset parent el ｜
-| top | number | 0 | true | css top (`px`) property |
-| zIndex | number | 100 | true | css z-index  property |
+| top | number | 0 | true | CSS top (`px`) property |
+| style | object | {} | true | CSS property |
+| holderStyle | object | {} | true | CSS property for the Target Placeholder Element |
 | throttle | boolean | false | true | throttle feature when use scroll event(assigned when encounter special cases) |
 
-scrollRefer must have a position.
+`scrollRefer` & `offsetParent` must have a `non-static` position.
 
 ## Todo
 
