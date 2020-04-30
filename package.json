@@ -1,6 +1,6 @@
 {
   "name": "@autots/sticky",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "a sticky lib to simulate stickily positioned element",
   "main": "dist/sticky.js",
   "browser": "dist/sticky.js",
