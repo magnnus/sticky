@@ -41,7 +41,8 @@
   ],
   "files": [
     "dist",
-    "lib"
+    "lib/*.ts",
+    "lib/*.js"
   ],
   "author": "Magn Mah",
   "homepage": "https://github.com/magnnus/sticky",

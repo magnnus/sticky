@@ -1,6 +1,6 @@
 /*!
- * @autots/sticky v0.0.1
- * Last Modified @ 2019-9-5 10:08:57 AM
+ * @autots/sticky v0.0.2
+ * Last Modified @ 2020-4-30 14:31:21
  * Released under the MIT License.
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -117,41 +117,63 @@ var __assign = (this && this.__assign) || function () {
     return __assign.apply(this, arguments);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-var isSupportCssSticky = false;
+var supportSticky = false;
 var stickyVendor;
 (function () {
     var vendorList = ['', '-webkit-', '-ms-', '-moz-', '-o-'];
-    var vendorListLength = vendorList.length;
-    var stickyElement = document.createElement('div');
-    for (var i = 0; i < vendorListLength; i++) {
-        stickyElement.style.position = vendorList[i] + 'sticky';
-        if (stickyElement.style.position !== '') {
-            isSupportCssSticky = true;
+    var vendorsLen = vendorList.length;
+    var tmpEl = document.createElement('div');
+    for (var i = 0; i < vendorsLen; i++) {
+        tmpEl.style.position = vendorList[i] + 'sticky';
+        if (tmpEl.style.position !== '') {
+            supportSticky = true;
             stickyVendor = vendorList[i];
             return;
         }
     }
-    isSupportCssSticky = false;
+    supportSticky = false;
 })();
+function getClientHeight() {
+    return window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+}
+// function getClientWidth (): number {
+//   return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+// }
 var Sticky = /** @class */ (function () {
     function Sticky(el, customCfg) {
         var _this = this;
         this.el = el;
         this.customCfg = customCfg;
-        this._scrollListener = function () {
-            if (_this.scrollContainer === window) {
-                _this._setScrollPosition(_this.targets);
+        this._affixListener = function () {
+            var _a = _this, target = _a.target, targetHolder = _a.targetHolder, config = _a.config;
+            var tag = isNaN(config.top) && !isNaN(config.bottom) ? "bottom" /* BOTTOM */ : "top" /* TOP */;
+            var targetRect = (targetHolder || target).getBoundingClientRect();
+            var style = target.style;
+            var clientRect = 0;
+            if (tag === 'bottom') {
+                clientRect = getClientHeight();
+            }
+            // else if (tag === 'right') {
+            //   // ! Not Used!!!
+            //   clientRect = getClientWidth();
+            // }
+            if (targetRect[tag] < Math.abs(clientRect - config[tag])) {
+                _this.createTargetHolder();
+                _this.setStyleForTarget();
+                style.position = 'fixed';
+                style[tag] = config[tag] + 'px';
             }
             else {
-                var currentEleOffsetTop = 0;
-                var cur = _this.targets;
-                while (cur !== _this.scrollContainer && cur !== null) {
-                    currentEleOffsetTop += cur.offsetTop;
-                    cur = cur.offsetParent;
-                }
-                _this.currentEleOffsetTop = currentEleOffsetTop;
-                _this._setInnerScrollPosition(_this.targets);
+                _this.removeTagetHolder();
+                target.removeAttribute('style');
             }
+        };
+        this._fallbackStickyListener = function () {
+            if (_this.scrollRefer === window) {
+                _this._setPosOnWindowSticky();
+                return;
+            }
+            _this._setPosOnInnerSticky();
         };
         this._throttle = function (fn, delay) {
             if (delay === void 0) { delay = 16; }
@@ -191,128 +213,242 @@ var Sticky = /** @class */ (function () {
             };
         };
         if (!el) {
-            console.error(new Error('Sticky 初始化错误，缺少必要的选择器参数'));
+            console.error(new Error('Sticky Init Error: missing necessary first param'));
             return;
         }
         if (typeof el === 'string') {
-            this.targets = document.querySelector(el);
+            this.target = document.querySelector(el);
         }
         else if (el instanceof HTMLElement) {
-            this.targets = el;
+            this.target = el;
         }
-        else if ((el instanceof HTMLCollection || el instanceof NodeList) && el.length) {
-            this.targets = el[0];
-        }
-        if (!this.targets) {
-            console.error(new Error('Sticky 初始化失败，无法获取到有效的被监听元素'));
+        if (!this.target) {
+            console.error(el, new Error('Sticky Init Error: unable to get a valid listening element'));
             return;
         }
         this.config = __assign(__assign({}, Sticky.defaultConfig), customCfg);
         this._init();
     }
-    // decide to use css or scroll event
     Sticky.prototype._init = function () {
-        var _this = this;
-        var config = this.config;
-        if (isSupportCssSticky) {
-            this._setCssSticky();
+        var cfg = this.config;
+        // check `mode` firstly
+        if (cfg.mode === 'affix') {
+            if (supportSticky && this.target.parentElement === document.body) {
+                this._initNativeStickyMode();
+                return;
+            }
+            this._initAffixMode();
             return;
         }
+        // then apply `native sticky` func
+        if (supportSticky) {
+            this._initNativeStickyMode();
+            return;
+        }
+        this._initFallbackStickyMode();
+    };
+    Sticky.prototype.createTargetHolder = function () {
+        var _a = this, target = _a.target, targetHolder = _a.targetHolder;
+        if (targetHolder) {
+            return;
+        }
+        var holder = document.createElement('div');
+        var s = getComputedStyle(target, null);
+        holder.style.cssText = "float: " + s.cssFloat + "; display: " + s.display + "; width: " + target.offsetWidth + "px; height: " + target.offsetHeight + "px; margin: " + s.marginTop + " " + s.marginRight + " " + s.marginBottom + " " + s.marginLeft + ";";
+        target.insertAdjacentElement('beforebegin', holder);
+        this.targetHolder = holder;
+        this.setStyleForHolder();
+    };
+    Sticky.prototype.removeTagetHolder = function () {
+        var targetHolder = this.targetHolder;
+        if (targetHolder) {
+            targetHolder.parentNode.removeChild(targetHolder);
+            this.targetHolder = null;
+        }
+    };
+    Sticky.prototype._initAffixMode = function () {
+        var config = this.config;
         if (config.throttle) {
-            this.listener = this._throttle(this._scrollListener);
+            this.listener = this._throttle(this._affixListener);
         }
         else {
-            this.listener = this._scrollListener;
+            this.listener = this._affixListener;
         }
-        var scrollContainer;
-        if (config.scrollContainer === window || config.scrollContainer === document) {
-            scrollContainer = window;
-        }
-        else if (typeof config.scrollContainer === 'string') {
-            scrollContainer = document.querySelector(config.scrollContainer);
-        }
-        else if (config.scrollContainer instanceof HTMLElement) {
-            scrollContainer = config.scrollContainer;
-        }
-        else if (config.scrollContainer instanceof NodeList || config.scrollContainer instanceof HTMLCollection) {
-            var tmp = Array.prototype.slice.apply(config.scrollContainer);
-            tmp.forEach(function (el) {
-                if (el.contains(_this.targets)) {
-                    scrollContainer = el;
-                }
-            });
-        }
-        if (!scrollContainer) {
-            console.error(new Error('无效的 scrollContainer'));
-        }
-        this.scrollContainer = scrollContainer;
-        scrollContainer.addEventListener('scroll', this.listener, false);
+        this._initTargetInfo();
+        window.addEventListener('scroll', this.listener, false);
     };
-    Sticky.prototype._setCssSticky = function () {
-        var config = this.config;
-        var el = this.targets;
-        el.style.position = stickyVendor + "sticky";
-        el.style.top = config.top + 'px';
-        el.style.zIndex = config.zIndex.toString();
+    Sticky.prototype._initNativeStickyMode = function () {
+        var _a = this, _b = _a.config, top = _b.top, bottom = _b.bottom, target = _a.target;
+        this.setStyleForTarget();
+        target.style.position = stickyVendor + "sticky";
+        if (!isNaN(top)) {
+            target.style.top = top + 'px';
+        }
+        else if (!isNaN(bottom)) {
+            target.style.bottom = bottom + 'px';
+        }
     };
-    Sticky.prototype._setScrollPosition = function (currentEle) {
-        var childEle = currentEle.firstElementChild;
+    Sticky.prototype._initFallbackStickyMode = function () {
         var config = this.config;
-        var currentEleOffsetTop = currentEle.offsetTop;
-        var currentEleBoundingTop = currentEle.getBoundingClientRect().top;
-        var parentEleHeight = currentEle.offsetParent.offsetHeight;
-        var childEleStyle = childEle.style;
-        if (currentEleBoundingTop <= config.top) {
-            var tmpHeight = parseInt(currentEle.style.height);
-            if (!tmpHeight || tmpHeight !== childEle.offsetHeight) {
-                currentEle.style.height = childEle.offsetHeight + "px";
+        var tmpRefer;
+        var scrollRefer = config.scrollRefer, offsetParent = config.offsetParent;
+        var globalArr = [window, document, document.body];
+        if (globalArr.indexOf(scrollRefer) !== -1) {
+            tmpRefer = window;
+        }
+        else if (typeof scrollRefer === 'string') {
+            tmpRefer = document.querySelector(scrollRefer);
+        }
+        else if (scrollRefer instanceof Element) {
+            tmpRefer = scrollRefer;
+        }
+        if (!tmpRefer) {
+            console.error(new Error('Add Sticky Scroll Listener Error: invalid scrollRefer param'), config);
+            return;
+        }
+        this.scrollRefer = tmpRefer;
+        var tmpParent = null;
+        if (offsetParent) {
+            if (typeof offsetParent === 'string') {
+                tmpParent = (this.scrollRefer === window ? document : this.scrollRefer).querySelector(offsetParent);
             }
-            if (parentEleHeight - currentEleOffsetTop - currentEle.offsetHeight - Math.abs(currentEleBoundingTop) < 0) {
-                childEleStyle.position = 'absolute';
-                childEleStyle.bottom = '0px';
-                childEleStyle.top = '';
+            else if (offsetParent instanceof Element) {
+                tmpParent = offsetParent;
+            }
+        }
+        else {
+            tmpParent = this.target.offsetParent;
+        }
+        this.offsetParent = tmpParent;
+        if (config.throttle) {
+            this.listener = this._throttle(this._fallbackStickyListener);
+        }
+        else {
+            this.listener = this._fallbackStickyListener;
+        }
+        this._initTargetInfo();
+        this.scrollRefer.addEventListener('scroll', this.listener, false);
+    };
+    Sticky.prototype.setStyleForTarget = function () {
+        var _a = this, config = _a.config, target = _a.target;
+        var style = config.style;
+        for (var _i = 0, _b = Object.keys(style); _i < _b.length; _i++) {
+            var attr = _b[_i];
+            target.style[attr] = style[attr];
+        }
+    };
+    Sticky.prototype.setStyleForHolder = function () {
+        var _a = this, config = _a.config, targetHolder = _a.targetHolder;
+        var holderStyle = config.holderStyle;
+        for (var _i = 0, _b = Object.keys(holderStyle); _i < _b.length; _i++) {
+            var attr = _b[_i];
+            targetHolder.style[attr] = holderStyle[attr];
+        }
+    };
+    Sticky.prototype._getTopDist = function (refer) {
+        var top = 0;
+        var cur = this.target;
+        while (cur !== refer && cur !== null) {
+            top += cur.offsetTop;
+            if (cur !== this.target) {
+                top += parseInt(getComputedStyle(cur).borderTopWidth, 10);
+            }
+            cur = cur.offsetParent;
+        }
+        return top;
+    };
+    Sticky.prototype._getLeftDist = function (refer) {
+        var left = 0;
+        var cur = this.target;
+        while (cur !== refer && cur !== null) {
+            left += cur.offsetLeft;
+            if (cur !== this.target) {
+                left += parseInt(getComputedStyle(cur).borderLeftWidth, 10);
+            }
+            cur = cur.offsetParent;
+        }
+        return left;
+    };
+    Sticky.prototype._initTargetInfo = function () {
+        var _a = this, target = _a.target, scrollRefer = _a.scrollRefer, offsetParent = _a.offsetParent;
+        var rect = target.getBoundingClientRect();
+        this.targetInfo = {
+            topToRefer: this._getTopDist(scrollRefer),
+            topToParent: this._getTopDist(offsetParent),
+            leftToRefer: this._getLeftDist(scrollRefer),
+            leftToParent: this._getLeftDist(offsetParent),
+            height: target.offsetHeight,
+            width: target.offsetWidth,
+            leftToClient: rect.left,
+        };
+    };
+    Sticky.prototype._setPosOnWindowSticky = function () {
+        var _a = this, target = _a.target, targetHolder = _a.targetHolder, config = _a.config, targetInfo = _a.targetInfo;
+        var targetBoundingTop = (targetHolder || target).getBoundingClientRect().top;
+        var parentEleHeight = this.offsetParent.offsetHeight;
+        var targetStyle = target.style;
+        if (targetBoundingTop <= config.top) {
+            this.createTargetHolder();
+            this.setStyleForTarget();
+            if (parentEleHeight - targetInfo.topToParent - targetInfo.height - config.top < Math.abs(targetBoundingTop)) {
+                targetStyle.position = 'absolute';
+                targetStyle.bottom = '0px';
+                targetStyle.left = targetInfo.leftToParent + 'px';
+                targetStyle.removeProperty('top');
             }
             else {
-                childEleStyle.position = 'fixed';
-                childEleStyle.bottom = '';
-                childEleStyle.top = config.top + "px";
+                targetStyle.position = 'fixed';
+                targetStyle.top = config.top + "px";
+                targetStyle.left = targetInfo.leftToClient + 'px';
+                targetStyle.removeProperty('bottom');
             }
-            childEleStyle.zIndex = config.zIndex.toString();
         }
         else {
-            childEleStyle.position = 'static';
+            target.removeAttribute('style');
+            this.removeTagetHolder();
         }
     };
-    Sticky.prototype._setInnerScrollPosition = function (currentEle) {
-        var parentEle = currentEle.offsetParent;
-        var childEle = currentEle.firstElementChild;
-        var scrollEle = this.scrollContainer;
-        var currentEleHeight = currentEle.offsetHeight;
-        // let currentEleOffsetTop = 0;
-        // let cur = currentEle;
-        // while (cur !== scrollEle) {
-        //   currentEleOffsetTop += cur.offsetTop;
-        //   cur = cur.offsetParent as HTMLElement;
+    Sticky.prototype._setPosOnInnerSticky = function () {
+        var _a = this, target = _a.target, targetInfo = _a.targetInfo, scrollRefer = _a.scrollRefer, offsetParent = _a.offsetParent, config = _a.config;
+        var offsetTag = 'top';
+        var reverseTag = 'bottom';
+        if (isNaN(config.top) && !isNaN(config.bottom)) {
+            offsetTag = 'bottom';
+            reverseTag = 'top';
+        }
+        var size = "offsetHeight" /* Height */;
+        var dist = "scrollTop" /* Top */;
+        // if (direction === 'horizontal') {
+        //   size = 'offsetWidth';
+        //   dist = 'scrollLeft';
         // }
-        var parentEleHeight = parentEle.offsetHeight;
-        var scrollTop = scrollEle.scrollTop;
-        if (scrollTop <= this.currentEleOffsetTop) {
-            childEle.style.position = '';
+        var targetSize = target[size];
+        var parentElSize = offsetParent[size];
+        var scrollDist = scrollRefer[dist];
+        var targetDist = targetInfo.topToRefer;
+        var targetStyle = target.style;
+        if (scrollDist <= targetDist - config[offsetTag]) {
+            target.removeAttribute('style');
+            this.removeTagetHolder();
         }
-        else if (scrollTop < parentEleHeight - currentEleHeight + this.currentEleOffsetTop) {
-            childEle.style.position = 'absolute';
-            childEle.style.top = scrollTop - this.currentEleOffsetTop + this.config.top + 'px';
-            childEle.style.bottom = '';
+        else if (scrollDist < parentElSize + targetDist - targetSize - targetInfo.topToParent - config[offsetTag]) {
+            this.createTargetHolder();
+            this.setStyleForTarget();
+            targetStyle.position = 'absolute';
+            targetStyle[offsetTag] = scrollDist - targetDist + config[offsetTag] + 'px';
+            targetStyle.removeProperty(reverseTag);
         }
-        else if (scrollTop < parentEleHeight + this.currentEleOffsetTop) {
-            childEle.style.position = 'absolute';
-            childEle.style.bottom = '0px';
-            childEle.style.top = '';
+        else if (scrollDist < parentElSize + targetDist - targetInfo.topToParent) {
+            this.createTargetHolder();
+            this.setStyleForTarget();
+            targetStyle.position = 'absolute';
+            targetStyle[reverseTag] = '0px';
+            targetStyle.removeProperty(offsetTag);
         }
         else {
-            childEle.style.position = '';
+            target.removeAttribute('style');
+            this.removeTagetHolder();
         }
-        childEle.style.zIndex = this.config.zIndex.toString();
     };
     Sticky.prototype.destory = function () {
         var _this = this;
@@ -320,33 +456,35 @@ var Sticky = /** @class */ (function () {
             window.removeEventListener('scroll', this.listener, false);
         }
         setTimeout(function () {
-            _this._resetStyle();
+            _this.resetStyle();
+            _this.removeTagetHolder();
         }, 100);
     };
-    Sticky.prototype._resetStyle = function () {
-        var el = this.targets;
-        if (isSupportCssSticky) {
-            el.style.position = '';
-            el.style.top = '';
-            el.style.zIndex = '';
-        }
-        else {
-            var childEle = el.firstElementChild;
-            el.style.height = '';
-            childEle.style.position = '';
-            childEle.style.top = '';
-            childEle.style.bottom = '';
-            childEle.style.zIndex = '';
-        }
-    };
-    Sticky.defaultConfig = {
-        scrollContainer: window,
-        top: 0,
-        zIndex: 100,
-        throttle: false,
+    Sticky.prototype.resetStyle = function () {
+        var el = this.target;
+        el.removeAttribute('style');
+        // if (supportSticky) {
+        //   el.removeAttribute('style');
+        // } else {
+        //   const childEle = el.firstElementChild as HTMLElement;
+        //   el.style.height = '';
+        //   childEle.removeAttribute('style');
+        // }
     };
     return Sticky;
 }());
+Sticky.defaultConfig = {
+    mode: 'sticky',
+    direction: 'vertical',
+    scrollRefer: window,
+    offsetParent: null,
+    style: {
+        zIndex: '100',
+    },
+    holderStyle: {},
+    zIndex: 100,
+    throttle: false,
+};
 exports.default = Sticky;
 
 
